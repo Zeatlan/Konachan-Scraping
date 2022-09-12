@@ -92,7 +92,6 @@ const scraping = async (puppet: KonachanPuppet) => {
   // Initialize Downloader
   const downloader = new Downloader(imagesUrl, artistName);
 
-  
   // There are pages
   if(pages.length > 0) {
     let lastPage = await puppet.getElements(".pagination a", "textContent")
@@ -100,19 +99,26 @@ const scraping = async (puppet: KonachanPuppet) => {
 
     let nbPages = [];
     for(let i = 1; i < parseInt(lastPage?.at(-1))+1; i++) {
-      nbPages.push(`${URL}/post?page=${i}&tags=${artistName}`)
+      nbPages.push(`${URL}/post?page=${i}&tags=${artistName.replace('(', '%28').replace(')', '%29')}`)
     }
+
+    // Delete first page
+    nbPages.shift();
     
     if(nbPages) {
-      for(const page of nbPages!) {
-        await puppet.goTo(page);
-        await puppet.waitForSelector("a.directlink").catch(async () => {
-          console.log(`😥 You made Haruka cry. retrying...`)
-          await puppet.goTo(page);
-          await puppet.waitForSelector("a.directlink");
-        });
+      for(const page of nbPages) {
 
-        imagesUrl = imagesUrl.concat(await puppet.getElements("a.directlink", "href"));
+        await puppet.goTo(page);
+        await puppet.waitForSelector("a.directlink", { timeout: 20000 }).catch(async () => {
+          let retrying = true;
+
+          while(retrying) {
+            await puppet.goTo(page);
+            const selected = await puppet.waitForSelector("a.directlink", { timeout: 20000 }).catch(() => {});
+            if(selected) retrying = false;
+          }
+        });
+        imagesUrl = imagesUrl!.concat(await puppet.getElements("a.directlink", "href"));
       }
       
       await puppet.goTo(nbPages![0]);
@@ -162,6 +168,9 @@ const scraping = async (puppet: KonachanPuppet) => {
   await Promise.all(promisesCompress)
   console.log(`\n\x1b[32mAll files downloaded ! (\x1b[33m${nbImages.length} images from ${artistName}\x1b[32m)\x1b[0m`);
   console.log();
+
+  // Open folder in explorer
+  downloader.openInExplorer();
 
   promises = [];
   nbImages = [];

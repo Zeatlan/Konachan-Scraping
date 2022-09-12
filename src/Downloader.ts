@@ -8,6 +8,7 @@ import fs from 'fs/promises';
 import axios from 'axios';
 import { createWriteStream } from 'fs';
 import sharp from 'sharp';
+import childProcess from "child_process";
 
 export default class Downloader {
   basePath: string;
@@ -99,5 +100,12 @@ export default class Downloader {
     }catch(e) {
       console.error('Error while compressing the image ' + filename)
     }
+  }
+
+  /**
+   * Open folder in the explorer
+   */
+  openInExplorer() {
+    childProcess.exec(`start "" "${this.basePath}"`)
   }
 }
