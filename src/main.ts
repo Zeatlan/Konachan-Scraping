@@ -106,13 +106,17 @@ const scraping = async (puppet: KonachanPuppet, config: IConfig): Promise<unknow
       type: 'input',
       name: 'artist',
       message: "Type the artist you want to fetch (Don't forget the '_' between space)",
+      default: 'exit'
     }
   ]);
 
+  
   if(artistSearch.artist === '') {
     console.error(`❌ Invalid artist name\n`);
     return Promise.reject(mainMenu(config));
   }
+
+  if(artistSearch.artist.toLowerCase() === 'exit') return Promise.resolve(mainMenu(config));
 
   let artistName = artistSearch.artist.toLowerCase();
   
