@@ -7,49 +7,71 @@ import inquirer from "inquirer";
 import KonachanPuppet from "./KonachanPuppet.js";
 import Downloader from './Downloader.js';
 import path from "path";
+import { readFile, writeFile } from 'fs/promises';
+import IConfig from "./Interfaces/IConfig.js";
+
 
 const URL = 'https://konachan.com/';
 
-const init = () => {
-  console.log(`\x1b[33mKonachan Scraper [v1.0.0]\x1b[0m`)
+
+const init = async () => {
+  const config = JSON.parse((await readFile('./src/config.json')).toString());
+  const $ = JSON.parse((await readFile('./package.json')).toString())
+
+  console.log(`\x1b[33mKonachan Scraper [v${$.version}]\x1b[0m`)
   console.log();
 
-  mainMenu();
+  mainMenu(config);
 }
 
-const mainMenu = async () => {
+const mainMenu = async (config: IConfig): Promise<unknown> => {
+
+  const switchMode = (config.mode === 'R18') ? 'R18 -> G' : 'G -> R18';
+
   const menu = await inquirer.prompt([
     {
       type: 'list',
       name: 'main',
       message: 'What do you want to do ?',
-      choices: ['Get all images from artist', 'Exit']
+      choices: ['Get all images from artist', switchMode, 'Exit']
     }
-  ])
+  ]);
 
   if(menu.main) {
     if(menu.main === 'Get all images from artist') {
-      await initPuppet();
-    }else {
+      await initPuppet(config);
+    }
+
+    if(menu.main === switchMode) {
+      config.mode = (config.mode === 'R18') ? 'G': 'R18';
+      await writeFile('./src/config.json', JSON.stringify(config));
+      return Promise.resolve(mainMenu(config));
+    }
+    
+    if(menu.main === 'Exit') {
       process.exit(0);
     }
   }
 }
 
-const initPuppet = async () => {
+const initPuppet = async (config: IConfig) => {
   // ************************************
   // *           Init section           *
   // ************************************
   const puppet = new KonachanPuppet();
-  await puppet.initialize({ headless: true });
-  await puppet.goTo(URL);
+  await puppet.initialize({ headless: false });
+  await puppet.goTo(URL).catch(() => {
+    console.error(`Couldn't connect to konachan.com, please check your internet connection or konachan status, if everything is ok, please open a ticket on the github page.`)
+    Promise.reject(mainMenu(config))
+  })
+  await puppet.waitForSelector('#tags')
 
   console.log();
 
-  scraping(puppet);
+  scraping(puppet, config);
 }
 
-const scraping = async (puppet: KonachanPuppet) => {
+const scraping = async (puppet: KonachanPuppet, config: IConfig) => {
   console.log('################################')
 
   // ************************************
@@ -65,7 +87,7 @@ const scraping = async (puppet: KonachanPuppet) => {
 
   if(artistSearch.artist === '') {
     console.error(`❌ Invalid artist name\n`);
-    return mainMenu();
+    return mainMenu(config);
   }
 
   let artistName = artistSearch.artist.toLowerCase();
@@ -74,7 +96,7 @@ const scraping = async (puppet: KonachanPuppet) => {
 
   await puppet.waitForSelector("a.directlink").catch(() => {
     console.log(`🙏 Sorry, couldn't find ${artistName} on ${URL}.\n`);
-    return mainMenu();
+    return mainMenu(config);
   });
 
   let imagesUrl = await puppet.getElements("a.directlink", "href");
@@ -83,6 +105,18 @@ const scraping = async (puppet: KonachanPuppet) => {
   // Check if there are pages
   const pages = await puppet.getElement(".pagination");
   if(!pages) return;
+
+  
+  // ************************************
+  // *          Switch section          *
+  // ************************************
+  const whatMode = await puppet.getElement('li.switch a', 'textContent');
+  if(whatMode){
+    if(config.mode === 'R18' && whatMode[0] === 'Explicit' || config.mode === 'G' && whatMode[0] === 'Safe Mode'){
+      await puppet.switchMode(artistName!);
+      console.log(`Successfully switched to ${config.mode} mode !`)
+    }
+  }
 
   
   // ************************************
@@ -174,7 +208,7 @@ const scraping = async (puppet: KonachanPuppet) => {
 
   promises = [];
   nbImages = [];
-  mainMenu();
+  return Promise.resolve(mainMenu(config));
 }
 
 init();

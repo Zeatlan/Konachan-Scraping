@@ -14,12 +14,14 @@ export default class KonachanPuppet {
   mainPage: puppeteer.Page | null;
   searchInput: puppeteer.ElementHandle<Element> | null | undefined;
   blocker: PuppeteerBlocker | null;
+  modeHref: puppeteer.ElementHandle<Element> | null | undefined;
 
   constructor() {
     this.browser = null;
     this.mainPage = null;
     this.searchInput = null;
     this.blocker = null;
+    this.modeHref = null;
   }
 
   /**
@@ -47,10 +49,12 @@ export default class KonachanPuppet {
     this.blocker!.enableBlockingInPage(this.mainPage!);
 
     try {
-      await this.mainPage?.goto(url);
+      await this.mainPage?.goto(url).catch(() => {
+        return Promise.reject("Can't load konachan.com, please verify your internet connection or konachan.com status");
+      });
       console.log(`\n🔗 Browsing ${url}...`)
     }catch(e) {
-      console.error(e);
+      return Promise.reject(false);
     }
   }
 
@@ -59,10 +63,10 @@ export default class KonachanPuppet {
    * @param {string} artist - Artist name
    */
   async search(artist: string) {
-    this.searchInput = await this.mainPage?.$('input[name="tags"]');
+    this.searchInput = await this.mainPage?.$('input[id="tags"]');
 
     if(this.searchInput && this.mainPage) {
-      await this.searchInput.click({ clickCount: 3})
+      await this.mainPage.click('input#tags', { clickCount: 3 })
       await this.searchInput.type(artist);
       await this.mainPage.keyboard.press('Enter');
 
@@ -74,12 +78,40 @@ export default class KonachanPuppet {
   }
 
   /**
+   * Search mode (From G -> R18 or R18 -> G)
+   * @param {string} artistName - Artist Name to go back
+   */
+  async switchMode(artistName: string) {
+    this.modeHref = await this.mainPage?.$("a[href='/post/switch']");
+
+    if(this.modeHref && this.mainPage) {
+      await this.modeHref.click();
+      await this.waitForSelector('a');
+      const agree = await this.mainPage.$("h6 a")
+      if(agree) agree.click();
+
+      try {
+        await this.waitForSelector('#tags');
+        await this.search(artistName);
+      }catch(e) {
+        return;
+      }
+    }
+  }
+
+  /**
    * Wait for page to load completely
    * @pparam {Object} options
    * @return Promise<unknown>
    */
   async waitForNavigation(options: Object = {}): Promise<unknown> {
-    return new Promise(resolve => resolve(this.mainPage?.waitForNavigation(options)));
+    return new Promise((resolve, reject) => {
+      return this.mainPage?.waitForNavigation(options).then(() => {
+        resolve(true);
+      }).catch(() => {
+        reject(false);
+      })
+    })
   }
 
   /**
@@ -89,11 +121,11 @@ export default class KonachanPuppet {
    * @returns Promise<unknown>
    */
   async waitForSelector(selector: string, options: Object = {}): Promise<unknown> {
-    return new Promise((resolve, resject) => {
+    return new Promise((resolve, reject) => {
       return this.mainPage?.waitForSelector(selector, options).then(() => {
         resolve(true);
       }).catch(() => {
-        resject(false);
+        reject(false);
       })
     })
   }
@@ -122,6 +154,7 @@ export default class KonachanPuppet {
   async getElement(element: string, type: ElementType = "div"): Promise<any[] | undefined>  {
     try {
       if(type === 'div') return await this.mainPage?.$eval(element, (x: any) => [x.className]);
+      if(type === 'textContent') return await this.mainPage?.$eval(element, (x: any) => [x.textContent]);
     }catch(e) {
       return [];
     }
