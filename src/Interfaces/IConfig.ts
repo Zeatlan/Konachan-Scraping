@@ -7,5 +7,6 @@ import { ModeType } from "../Types/ModeType.js";
 
 export default interface IConfig {
   mode: ModeType;
+  outputDir: string;
 }
 

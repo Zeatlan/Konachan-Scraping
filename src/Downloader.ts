@@ -9,6 +9,7 @@ import axios from 'axios';
 import { createWriteStream } from 'fs';
 import sharp from 'sharp';
 import childProcess from "child_process";
+import IConfig from './Interfaces/IConfig.js';
 
 export default class Downloader {
   basePath: string;
@@ -16,8 +17,8 @@ export default class Downloader {
   images: string[];
   artistName: string;
 
-  constructor(images: string[], artistName: string, outputDir: string = 'artists') {
-    this.outputDir = outputDir;
+  constructor(images: string[], artistName: string, config: IConfig) {
+    this.outputDir = config.outputDir;
     this.artistName = artistName;
     this.basePath = path.join(this.outputDir, artistName)
     this.images = images;

@@ -1,1 +1,4 @@
-{"mode":"R18"}
+{
+  "mode":"R18",
+  "outputDir": "artists"
+}
