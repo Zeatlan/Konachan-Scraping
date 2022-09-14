@@ -13,7 +13,7 @@ Then
 npm run start
 ```
 
-(In the future, I will add some possible configurations, like the output folder for the images, switch to R18 / G... Everything will be configurable in the CLI).
+Everything is configurable directly in the CLI.
 
 ## Usage
 Just run the application on a terminal, and give the name of an artist (replace spaces with `_`) and it will automatically do the rest.
