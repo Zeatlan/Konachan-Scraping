@@ -33,7 +33,7 @@ const mainMenu = async (config: IConfig): Promise<unknown> => {
       type: 'list',
       name: 'main',
       message: 'What do you want to do ?',
-      choices: ['Get all images from artist', switchMode, 'Exit']
+      choices: ['Get all images from artist', switchMode, 'Edit output directory', 'Exit']
     }
   ]);
 
@@ -47,11 +47,35 @@ const mainMenu = async (config: IConfig): Promise<unknown> => {
       await writeFile('./src/config.json', JSON.stringify(config));
       return Promise.resolve(mainMenu(config));
     }
+
+    if(menu.main === 'Edit output directory') {
+      await editOutputDir(config);
+    }
     
     if(menu.main === 'Exit') {
       process.exit(0);
     }
   }
+}
+
+const editOutputDir = async (config: IConfig) => {
+  const menu = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'output',
+      message: `Specify your output directory`,
+      default: config.outputDir
+    }
+  ]);
+
+  if(menu.output !== '' && menu.output !== config.outputDir) {
+    config.outputDir = menu.output.replace(/\\/g, '\\');
+    await writeFile('./src/config.json', JSON.stringify(config));
+  }
+
+  console.log();
+
+  return Promise.resolve(mainMenu(config));
 }
 
 const initPuppet = async (config: IConfig) => {
